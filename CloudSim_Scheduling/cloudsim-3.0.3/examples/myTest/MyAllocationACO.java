@@ -1,10 +1,14 @@
-package myTest;
+/*
+ * Title:        CloudSim Toolkit
+ * Description:  CloudSim (Cloud Simulation) Toolkit for Modeling and Simulation
+ *               of Clouds
+ * Licence:      GPL - http://www.gnu.org/copyleft/gpl.html
+ *
+ * Copyright (c) 2009, The University of Melbourne, Australia
+ */
 
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.LinkedList;
-import java.util.List;
+
+package myTest;
 
 import org.cloudbus.cloudsim.*;
 import org.cloudbus.cloudsim.core.CloudSim;
@@ -12,26 +16,25 @@ import org.cloudbus.cloudsim.provisioners.BwProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 
-public class MyAllocationTest {
+import java.text.DecimalFormat;
+import java.util.*;
+
+/**
+ * An example showing how to create
+ * scalable simulations.
+ */
+public class MyAllocationACO {
+
+	/** The cloudlet list. */
 	private static List<Cloudlet> cloudletList;
 	private static int cloudletNum=40;
-	
+
 	private static List<Vm> vmlist;
 	private static int vmNum=5;
-	
-	public static void main(String args[]){
-		Log.printLine("Starting ExtendedExample...");
-		int num_user=1;
-		Calendar calendar=Calendar.getInstance();
-		boolean trace_flag=false;
-		
-		CloudSim.init(num_user, calendar, trace_flag);
-		
-		Datacenter datacenter0=createDatacenter("Datacenter_0");
 
-		AntDatacenterBroker broker=createBroker();
-		int brokerId=broker.getId();
+	private static void createVM(int userId) {
 
+		//Creates a container to store VMs. This list is passed to the broker later
 		vmlist = new ArrayList<Vm>();
 
 		// VM description（虚拟机参数设置）
@@ -46,13 +49,14 @@ public class MyAllocationTest {
 		// create VM
 		// add the VM to the vmList
 		for(int i=0; i<vmNum; i++) {
-			vmlist.add(new Vm(vmid, brokerId, mips[i], pesNumber, ram, bw[i], size, vmm, new CloudletSchedulerTimeShared()));
+			vmlist.add(new Vm(vmid, userId, mips[i], pesNumber, ram, bw[i], size, vmm, new CloudletSchedulerTimeShared()));
 			vmid++;
 		}
+	}
 
-		// submit vm list to the broker(将虚拟机列表提交给代理商)
-		broker.submitVmList(vmlist);
-		
+
+	private static void createCloudlet(int userId){
+		int pesNumber = 1;
 		int id=0;
 		long[] length = new long[] {
 				19365, 49809, 30218, 44157, 16754, 26785,12348, 28894, 33889, 58967,
@@ -64,27 +68,86 @@ public class MyAllocationTest {
 				23000, 22000, 41000, 42000, 24000, 23000, 36000, 42000, 46000, 33000,
 				23000, 22000, 41000, 42000, 50000, 10000, 40000, 20000, 41000, 10000,
 				40000, 20000, 41000, 27000, 30000, 50000, 10000, 40000, 20000, 17000};//云任务文件大小
-
+		// 使用随机的方法生成指令长度和文件数据长度。
+//		long[] length = new long[cloudletNum];
+//		long[] fileSize = new long[cloudletNum];
+//		Random random = new Random();
+//		random.setSeed(10000L);//设置种子，让每次运行产生的随机数相同
+//		for(int i = 0 ; i < cloudletNum ; i ++) {
+//			length[i] = random.nextInt(4000) + 1000;
+//		}
+//		random.setSeed(5000L);//设置种子，让每次运行产生的随机数相同
+//		for(int i = 0 ; i < cloudletNum ; i ++) {
+//			fileSize[i] = random.nextInt(20000) + 10000;
+//		}
 		long outputSize=300;
 		UtilizationModel model=new UtilizationModelFull();
-		
+
 		cloudletList=new ArrayList<Cloudlet>();
 		for (int i = 0; i < cloudletNum; i++) {
 			Cloudlet cloudlet=new Cloudlet(id, length[i], pesNumber, fileSize[i], outputSize, model, model, model);
-			cloudlet.setUserId(brokerId);
+			cloudlet.setUserId(userId);
 			cloudletList.add(cloudlet);
 			id++;
 		}
-		broker.submitCloudletList(cloudletList);
-		broker.bind(5,50);
-		
-//		broker.bindCloudletsToVmsSimple();
-		CloudSim.startSimulation();
-		
-		List<Cloudlet> newList=broker.getCloudletReceivedList();
-		CloudSim.stopSimulation();
-		printCloudletList(newList);
-		Log.printLine("ExtendedExample finished!");
+	}
+
+
+	////////////////////////// STATIC METHODS ///////////////////////
+
+	/**
+	 * Creates main() to run this example
+	 */
+	public static void main(String[] args) {
+		Log.printLine("Starting MyAllocationACO...");
+
+		try {
+			// First step: Initialize the CloudSim package. It should be called
+			// before creating any entities.
+			int num_user = 1;   // number of grid users
+			Calendar calendar = Calendar.getInstance();
+			boolean trace_flag = false;  // mean trace events
+
+			// Initialize the CloudSim library
+			CloudSim.init(num_user, calendar, trace_flag);
+
+			// Second step: Create Datacenters
+			//Datacenters are the resource providers in CloudSim. We need at list one of them to run a CloudSim simulation
+			@SuppressWarnings("unused")
+			Datacenter datacenter0 = createDatacenter("Datacenter_0");
+			@SuppressWarnings("unused")
+			Datacenter datacenter1 = createDatacenter("Datacenter_1");
+
+			//Third step: Create Broker
+			MyDatacenterBroker broker = createBroker();
+			int brokerId = broker.getId();
+
+			//Fourth step: Create VMs and Cloudlets and send them to broker
+			createVM(brokerId); //creating 20 vms
+			createCloudlet(brokerId); // creating 40 cloudlets
+
+			broker.submitVmList(vmlist);
+			broker.submitCloudletList(cloudletList);
+
+			broker.bindCloudletToVmACO(cloudletList,vmlist);
+
+			// Fifth step: Starts the simulation
+			CloudSim.startSimulation();
+
+			// Final step: Print results when simulation is over
+			List<Cloudlet> newList = broker.getCloudletReceivedList();
+
+			CloudSim.stopSimulation();
+
+			printCloudletList(newList);
+
+			Log.printLine("MyAllocationACO finished!");
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			Log.printLine("The simulation has been terminated due to an unexpected error");
+		}
 	}
 
 	private static Datacenter createDatacenter(String name) {
@@ -109,6 +172,7 @@ public class MyAllocationTest {
 
 		for(int i=0; i<vmNum; i++) {
 			// 3. Create PEs and add these into a list.
+			// 为每个虚拟机创建一个CPU，CPU能力大于虚拟机能力。
 			peList.add(new Pe(i, new PeProvisionerSimple(mips))); // need to store Pe id and MIPS Rating
 
 			hostList.add(
@@ -154,18 +218,25 @@ public class MyAllocationTest {
 
 		return datacenter;
 	}
-	
-	private static AntDatacenterBroker createBroker(){
-		AntDatacenterBroker broker=null;
+
+	//We strongly encourage users to develop their own broker policies, to submit vms and cloudlets according
+	//to the specific rules of the simulated scenario
+	private static MyDatacenterBroker createBroker(){
+
+		MyDatacenterBroker broker = null;
 		try {
-			broker=new AntDatacenterBroker("Broker");
+			broker = new MyDatacenterBroker("Broker");
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
+			return null;
 		}
 		return broker;
 	}
 
+	/**
+	 * Prints the Cloudlet objects
+	 * @param list  list of Cloudlets
+	 */
 	private static void printCloudletList(List<Cloudlet> list) {
 		int size = list.size();
 

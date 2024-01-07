@@ -1,5 +1,3 @@
-package myTest;
-
 /*
  * Title:        CloudSim Toolkit
  * Description:  CloudSim (Cloud Simulation) Toolkit for Modeling and Simulation
@@ -9,182 +7,149 @@ package myTest;
  * Copyright (c) 2009, The University of Melbourne, Australia
  */
 
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Random;
-import java.util.Collections;
-import java.util.Comparator;
 
-import org.cloudbus.cloudsim.Cloudlet;
-import org.cloudbus.cloudsim.CloudletSchedulerTimeShared;
-import org.cloudbus.cloudsim.Datacenter;
-import org.cloudbus.cloudsim.DatacenterBroker;
-import org.cloudbus.cloudsim.DatacenterCharacteristics;
-import org.cloudbus.cloudsim.Host;
-import org.cloudbus.cloudsim.Log;
-import org.cloudbus.cloudsim.Pe;
-import org.cloudbus.cloudsim.Storage;
-import org.cloudbus.cloudsim.UtilizationModel;
-import org.cloudbus.cloudsim.UtilizationModelFull;
-import org.cloudbus.cloudsim.Vm;
-import org.cloudbus.cloudsim.VmAllocationPolicySimple;
-import org.cloudbus.cloudsim.VmSchedulerTimeShared;
+package myTest;
+
+import org.cloudbus.cloudsim.*;
 import org.cloudbus.cloudsim.core.CloudSim;
-import org.cloudbus.cloudsim.lists.VmList;
 import org.cloudbus.cloudsim.provisioners.BwProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 
+import java.text.DecimalFormat;
+import java.util.*;
+
 /**
- * 使用DatacenterBroker中的默认调度算法执行，即使用“循环调度算法”执行任务调度，
- * 每个任务根据顺序，轮巡分配给每一个虚拟机。
+ * An example showing how to create
+ * scalable simulations.
  */
 public class MyAllocationFIFO {
+
 	/** The cloudlet list. */
 	private static List<Cloudlet> cloudletList;
+	private static int cloudletNum=40;
 
-	/** The vmlist. */
 	private static List<Vm> vmlist;
-	
-	// 设置类中全局变量，云任务数量和虚拟机数量，方便后面使用
-	private static int cloudletNum = 40;//云任务数量
-	private static int vmNum = 5;//虚拟机数量
+	private static int vmNum=5;
+
+	private static void createVM(int userId) {
+
+		//Creates a container to store VMs. This list is passed to the broker later
+		vmlist = new ArrayList<Vm>();
+
+		// VM description（虚拟机参数设置）
+		int vmid = 0;
+		int[] mips = new int[] {278, 289, 132, 209, 286};//虚拟机CPU频率
+		long size = 10000; // image size (MB)
+		int ram = 2048; // vm memory (MB)
+		long[] bw = new long[] {1000, 1200, 1100, 1300, 900};//虚拟机带宽
+		int pesNumber = 1; // number of cpus
+		String vmm = "Xen"; // VMM name
+
+		// create VM
+		// add the VM to the vmList
+		for(int i=0; i<vmNum; i++) {
+			vmlist.add(new Vm(vmid, userId, mips[i], pesNumber, ram, bw[i], size, vmm, new CloudletSchedulerTimeShared()));
+			vmid++;
+		}
+	}
+
+
+	private static void createCloudlet(int userId){
+		int pesNumber = 1;
+		int id=0;
+		long[] length = new long[] {
+				19365, 49809, 30218, 44157, 16754, 26785,12348, 28894, 33889, 58967,
+				35045, 12236, 20085, 31123, 32227, 41727, 51017, 44787, 65854, 39836,
+				18336, 20047, 31493, 30727, 31017, 30218, 44157, 16754, 26785, 12348,
+				49809, 30218, 44157, 16754, 26785, 44157, 16754, 26785, 12348, 28894};//云任务指令数
+		long[] fileSize = new long[] {
+				30000, 50000, 10000, 40000, 20000, 41000, 27000, 43000, 36000, 33000,
+				23000, 22000, 41000, 42000, 24000, 23000, 36000, 42000, 46000, 33000,
+				23000, 22000, 41000, 42000, 50000, 10000, 40000, 20000, 41000, 10000,
+				40000, 20000, 41000, 27000, 30000, 50000, 10000, 40000, 20000, 17000};//云任务文件大小
+		// 使用随机的方法生成指令长度和文件数据长度。
+//		long[] length = new long[cloudletNum];
+//		long[] fileSize = new long[cloudletNum];
+//		Random random = new Random();
+//		random.setSeed(10000L);//设置种子，让每次运行产生的随机数相同
+//		for(int i = 0 ; i < cloudletNum ; i ++) {
+//			length[i] = random.nextInt(4000) + 1000;
+//		}
+//		random.setSeed(5000L);//设置种子，让每次运行产生的随机数相同
+//		for(int i = 0 ; i < cloudletNum ; i ++) {
+//			fileSize[i] = random.nextInt(20000) + 10000;
+//		}
+		long outputSize=300;
+		UtilizationModel model=new UtilizationModelFull();
+
+		cloudletList=new ArrayList<Cloudlet>();
+		for (int i = 0; i < cloudletNum; i++) {
+			Cloudlet cloudlet=new Cloudlet(id, length[i], pesNumber, fileSize[i], outputSize, model, model, model);
+			cloudlet.setUserId(userId);
+			cloudletList.add(cloudlet);
+			id++;
+		}
+	}
+
+
+	////////////////////////// STATIC METHODS ///////////////////////
 
 	/**
-	 * Creates main() to run this example.
-	 *
-	 * @param args the args
+	 * Creates main() to run this example
 	 */
-	@SuppressWarnings("unused")
 	public static void main(String[] args) {
-
-		Log.printLine("Starting CloudSimExample1...");
+		Log.printLine("Starting MyAllocationFIFO...");
 
 		try {
 			// First step: Initialize the CloudSim package. It should be called
 			// before creating any entities.
-			// 第一步，即，初始化。
-			int num_user = 1; // number of cloud users
-			Calendar calendar = Calendar.getInstance();//日历
-			boolean trace_flag = false; // mean trace events
+			int num_user = 1;   // number of grid users
+			Calendar calendar = Calendar.getInstance();
+			boolean trace_flag = false;  // mean trace events
 
 			// Initialize the CloudSim library
-			// 初始化CloudSim库。
 			CloudSim.init(num_user, calendar, trace_flag);
 
-			
 			// Second step: Create Datacenters
-			// Datacenters are the resource providers in CloudSim. We need at
-			// list one of them to run a CloudSim simulation
-			// 第二步，创建数据中心
+			//Datacenters are the resource providers in CloudSim. We need at list one of them to run a CloudSim simulation
+			@SuppressWarnings("unused")
 			Datacenter datacenter0 = createDatacenter("Datacenter_0");
+			@SuppressWarnings("unused")
+			Datacenter datacenter1 = createDatacenter("Datacenter_1");
 
-			
-			// Third step: Create Broker
-			// 第三步，创建代理
-			DatacenterBroker broker = createBroker();
+			//Third step: Create Broker
+			MyDatacenterBroker broker = createBroker();
 			int brokerId = broker.getId();
 
-			
-			// Fourth step: Create five virtual machine
-			// 第四步，创建5个虚拟机
-			vmlist = new ArrayList<Vm>();
+			//Fourth step: Create VMs and Cloudlets and send them to broker
+			createVM(brokerId); //creating 20 vms
+			createCloudlet(brokerId); // creating 40 cloudlets
 
-			// VM description（虚拟机参数设置）
-			int vmid = 0;
-			int[] mips = new int[] {278, 289, 132, 209, 286};//虚拟机CPU频率
-			long size = 10000; // image size (MB)
-			int ram = 2048; // vm memory (MB)
-			long[] bw = new long[] {1000, 1200, 1100, 1300, 900};//虚拟机带宽
-			int pesNumber = 1; // number of cpus
-			String vmm = "Xen"; // VMM name
-
-			// create VM
-			// add the VM to the vmList		
-			for(int i=0; i<vmNum; i++) {
-				vmlist.add(new Vm(vmid, brokerId, mips[i], pesNumber, ram, bw[i], size, vmm, new CloudletSchedulerTimeShared()));
-				vmid++;
-			}
-			
-			// submit vm list to the broker(将虚拟机列表提交给代理商)
 			broker.submitVmList(vmlist);
-
-			
-			// Fifth step: Create one Cloudlet
-			// 第五步，创建40个任务
-			cloudletList = new ArrayList<Cloudlet>();
-
-			// Cloudlet properties（任务列表）
-			int id = 0;
-			long[] length = new long[] {
-					19365, 49809, 30218, 44157, 16754, 26785,12348, 28894, 33889, 58967,
-					35045, 12236, 20085, 31123, 32227, 41727, 51017, 44787, 65854, 39836,
-					18336, 20047, 31493, 30727, 31017, 30218, 44157, 16754, 26785, 12348,
-					49809, 30218, 44157, 16754, 26785, 44157, 16754, 26785, 12348, 28894};//云任务指令数
-			long[] fileSize = new long[] {
-					30000, 50000, 10000, 40000, 20000, 41000, 27000, 43000, 36000, 33000,
-					23000, 22000, 41000, 42000, 24000, 23000, 36000, 42000, 46000, 33000,
-					23000, 22000, 41000, 42000, 50000, 10000, 40000, 20000, 41000, 10000,
-					40000, 20000, 41000, 27000, 30000, 50000, 10000, 40000, 20000, 17000};//云任务文件大小
-			
-//			// 使用随机的方法生成指令长度和文件数据长度。
-//			long[] length = new long[cloudletNum];
-//			long[] fileSize = new long[cloudletNum]; 
-//			Random random = new Random();
-//			random.setSeed(10000L);//设置种子，让每次运行产生的随机数相同
-//			for(int i = 0 ; i < cloudletNum ; i ++) {
-//				length[i] = random.nextInt(4000) + 1000;
-//	        }
-//			random.setSeed(5000L);//设置种子，让每次运行产生的随机数相同
-//			for(int i = 0 ; i < cloudletNum ; i ++) {
-//				fileSize[i] = random.nextInt(20000) + 10000;
-//	        }
-//			
-			long outputSize = 300;
-			UtilizationModel utilizationModel = new UtilizationModelFull();
-			
-			// add the cloudlet to the list
-			for(int i=0; i<cloudletNum; i++) {
-				Cloudlet cloudlet = new Cloudlet(id, length[i], pesNumber, fileSize[i], outputSize, utilizationModel, utilizationModel, utilizationModel);
-				cloudlet.setUserId(brokerId);
-				cloudletList.add(cloudlet);
-				id++;
-			}
-					
-			// submit cloudlet list to the broker.（将任务提交给代理商）
 			broker.submitCloudletList(cloudletList);
-			
-			// 不用将虚拟机和任务进行绑定，使用DatacenterBroker.java中的默认绑定方法。
-			
-			// Sixth step: Starts the simulation
-			//第六步，开始仿真
+
+			broker.bindCloudletToVmPolling(cloudletList,vmlist);
+
+			// Fifth step: Starts the simulation
 			CloudSim.startSimulation();
+
+			// Final step: Print results when simulation is over
+			List<Cloudlet> newList = broker.getCloudletReceivedList();
 
 			CloudSim.stopSimulation();
 
-			
-			//Final step: Print results when simulation is over
-			//最后一步，输出仿真结果
-			List<Cloudlet> newList = broker.getCloudletReceivedList();
 			printCloudletList(newList);
 
-			Log.printLine("CloudSimExample1 finished!");
-		} catch (Exception e) {
+			Log.printLine("MyAllocationFIFO finished!");
+		}
+		catch (Exception e)
+		{
 			e.printStackTrace();
-			Log.printLine("Unwanted errors happen");
+			Log.printLine("The simulation has been terminated due to an unexpected error");
 		}
 	}
 
-	/**
-	 * Creates the datacenter.
-	 *
-	 * @param name the name
-	 *
-	 * @return the datacenter
-	 */
 	private static Datacenter createDatacenter(String name) {
 
 		// Here are the steps needed to create a PowerDatacenter:
@@ -197,29 +162,29 @@ public class MyAllocationFIFO {
 		List<Pe> peList = new ArrayList<Pe>();
 
 		int mips = 1000;
-		
+
 		// 4. Create Host with its id and list of PEs and add them to the list
 		// of machines
 		int hostId = 0;
 		int ram = 2048; // host memory (MB)
 		long storage = 1000000; // host storage
 		int bw = 10000; //带宽
-		
+
 		for(int i=0; i<vmNum; i++) {
 			// 3. Create PEs and add these into a list.
 			// 为每个虚拟机创建一个CPU，CPU能力大于虚拟机能力。
 			peList.add(new Pe(i, new PeProvisionerSimple(mips))); // need to store Pe id and MIPS Rating
-			
+
 			hostList.add(
 					new Host(
-						hostId,
-						new RamProvisionerSimple(ram),
-						new BwProvisionerSimple(bw),
-						storage,
-						peList,
-						new VmSchedulerTimeShared(peList)
+							hostId,
+							new RamProvisionerSimple(ram),
+							new BwProvisionerSimple(bw),
+							storage,
+							peList,
+							new VmSchedulerTimeShared(peList)
 					)
-				); // This is our machine
+			); // This is our machine
 			hostId++;
 		}
 
@@ -234,10 +199,10 @@ public class MyAllocationFIFO {
 		double cost = 3.0; // the cost of using processing in this resource
 		double costPerMem = 0.05; // the cost of using memory in this resource
 		double costPerStorage = 0.001; // the cost of using storage in this
-										// resource
+		// resource
 		double costPerBw = 0.0; // the cost of using bw in this resource
 		LinkedList<Storage> storageList = new LinkedList<Storage>(); // we are not adding SAN
-													// devices by now
+		// devices by now
 
 		DatacenterCharacteristics characteristics = new DatacenterCharacteristics(
 				arch, os, vmm, hostList, time_zone, cost, costPerMem,
@@ -254,18 +219,13 @@ public class MyAllocationFIFO {
 		return datacenter;
 	}
 
-	// We strongly encourage users to develop their own broker policies, to
-	// submit vms and cloudlets according
-	// to the specific rules of the simulated scenario
-	/**
-	 * Creates the broker.
-	 *
-	 * @return the datacenter broker
-	 */
-	private static DatacenterBroker createBroker() {
-		DatacenterBroker broker = null;
+	//We strongly encourage users to develop their own broker policies, to submit vms and cloudlets according
+	//to the specific rules of the simulated scenario
+	private static MyDatacenterBroker createBroker(){
+
+		MyDatacenterBroker broker = null;
 		try {
-			broker = new DatacenterBroker("Broker");
+			broker = new MyDatacenterBroker("Broker");
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
@@ -274,20 +234,19 @@ public class MyAllocationFIFO {
 	}
 
 	/**
-	 * Prints the Cloudlet objects.
-	 *
-	 * @param list list of Cloudlets
+	 * Prints the Cloudlet objects
+	 * @param list  list of Cloudlets
 	 */
 	private static void printCloudletList(List<Cloudlet> list) {
 		int size = list.size();
-		
+
 		double[] executeTimeOfVM = new double[vmNum];//记录每个虚拟机VM的最后一个任务完成时间
 		double meanOfExecuteTimeOfVM = 0;//虚拟机平均运行时间
 		for(int i=0;i<vmNum;i++) {//初始化数组
 			executeTimeOfVM[i] = 0;
 		}
 		double LB=0;//负载平衡因子
-		
+
 		Cloudlet cloudlet;
 
 		String indent = "    ";
@@ -312,14 +271,13 @@ public class MyAllocationFIFO {
 						+ indent + dft.format(cloudlet.getExecStartTime())
 						+ indent + indent
 						+ dft.format(cloudlet.getFinishTime()));
-				
 				//计算每个虚拟机最后完成的时间
 				if(cloudlet.getFinishTime() > executeTimeOfVM[cloudlet.getVmId()]) {
 					executeTimeOfVM[cloudlet.getVmId()] = cloudlet.getFinishTime();
 				}
 			}
 		}
-		
+
 		//求所有虚拟机平均运行时间
 		for(int i=0;i<vmNum;i++) {
 			meanOfExecuteTimeOfVM += executeTimeOfVM[i];
@@ -327,8 +285,8 @@ public class MyAllocationFIFO {
 		}
 		meanOfExecuteTimeOfVM /= vmNum;
 		Log.printLine("meanOfExecuteTimeOfVM:" + meanOfExecuteTimeOfVM + "\n");
-		
-		//计算负载平衡因子（即标准差）
+
+		//计算负载平衡因子
 		for(int i=0; i<vmNum; i++) {
 			LB += Math.pow(executeTimeOfVM[i]-meanOfExecuteTimeOfVM, 2);
 		}
